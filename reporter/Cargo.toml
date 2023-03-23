@@ -1,0 +1,21 @@
+[package]
+name = "reporter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+biotools = { path = "../biotools" }
+config = "0.13.1"
+log = "0.4.0"
+env_logger = "0.8.4"
+serde = { version = "1.0.104", features = ["derive"] }
+chrono = "0.4"
+lazy_static = "1.4.0"
+rusqlite = { version = "0.27.0", features = ["bundled"] }
+nclist = "0.1.1"
+regex = "1.5"
+rayon = "1.5"
+
+
