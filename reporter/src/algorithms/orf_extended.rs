@@ -1,11 +1,9 @@
-use crate::models::{Hit, OrfTranscript};
 use crate::algorithms::orf;
-use log::{info, warn};
+use crate::models::{Hit, OrfTranscript};
 use biotools::CONFIG;
-
+use log::{info, warn};
 
 pub fn generate(hit: &Hit, orf: &OrfTranscript) -> Option<OrfTranscript> {
-
     // Check config
     if !CONFIG.switch.extend_orf {
         return None;
@@ -21,7 +19,8 @@ pub fn generate(hit: &Hit, orf: &OrfTranscript) -> Option<OrfTranscript> {
     };
 
     // Ensure extended contains initial orf
-    if ext_orf.cdna_start > orf.cdna_start_transcript || ext_orf.cdna_end < orf.cdna_end_transcript {
+    if ext_orf.cdna_start > orf.cdna_start_transcript || ext_orf.cdna_end < orf.cdna_end_transcript
+    {
         warn!("Extended orf does not consume initial for hmm search id# {}, gene {}, (ext coords: {}-{}, initial coords: {}-{}), reverting to initial orv.", 
             hit.hmmsearch_id, hit.gene_id, ext_orf.cdna_start, ext_orf.cdna_end, orf.cdna_start_transcript, orf.cdna_end_transcript);
         return None;
@@ -32,10 +31,12 @@ pub fn generate(hit: &Hit, orf: &OrfTranscript) -> Option<OrfTranscript> {
         hit.hmmsearch_id, hit.gene_id, ext_orf.cdna_start, ext_orf.cdna_end, orf.cdna_start_transcript, orf.cdna_end_transcript);
 
     // Check for any overlap
-    if ext_orf.cdna_start > orf.cdna_end_transcript || ext_orf.cdna_end < orf.cdna_start_transcript {
+    if ext_orf.cdna_start > orf.cdna_end_transcript || ext_orf.cdna_end < orf.cdna_start_transcript
+    {
         warn!("Extended orf does not contain any overlap for hmm search id# {}, gene {}, reverting to initial orf.", hit.hmmsearch_id, hit.gene_id);
         return None;
-    } else if ext_orf.aa_start_transcript > hit.ali_end || ext_orf.aa_end_transcript < hit.ali_start {
+    } else if ext_orf.aa_start_transcript > hit.ali_end || ext_orf.aa_end_transcript < hit.ali_start
+    {
         warn!("Extended orf does not contain any overlap for hmm search id# {}, gene {}, reverting to initial orf.", hit.hmmsearch_id, hit.gene_id);
         return None;
     }
@@ -55,7 +56,8 @@ pub fn generate(hit: &Hit, orf: &OrfTranscript) -> Option<OrfTranscript> {
     };
 
     // Check overlap
-    let overlap_percent: f32 = (overlap_end as f32 - overlap_start as f32) / (ext_orf.aa_end_transcript as f32 - ext_orf.aa_start_transcript as f32);
+    let overlap_percent: f32 = (overlap_end as f32 - overlap_start as f32)
+        / (ext_orf.aa_end_transcript as f32 - ext_orf.aa_start_transcript as f32);
     if overlap_percent < CONFIG.search.min_overlap {
         warn!("Orf only overlaps extended orf by {} percent on hmm search id# {}, gene {}, reverting to initial orv", overlap_percent, hit.hmmsearch_id, hit.gene_id);
         return None;
@@ -63,5 +65,3 @@ pub fn generate(hit: &Hit, orf: &OrfTranscript) -> Option<OrfTranscript> {
 
     Some(ext_orf)
 }
-
-

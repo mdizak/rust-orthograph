@@ -1,13 +1,13 @@
 use crate::reporter::ReporterKit;
 use crate::stats::Stats;
 use biotools::db::sqlite::TBL_HITS;
-use rusqlite::{Statement, Error};
-use std::collections::HashMap;
 use biotools::CONFIG;
 use log::{info, warn};
+use rusqlite::{Error, Statement};
+use std::collections::HashMap;
 
 pub struct EnvCandidate {
-    pub id : u32,
+    pub id: u32,
     hmmsearch_id: u32,
     pub gene_id: String,
     score: f32,
@@ -16,26 +16,27 @@ pub struct EnvCandidate {
     pub header_base: String,
     pub hdr_revcomp: u8,
     pub hdr_translate: u8,
-    rank: u8
+    rank: u8,
 }
 
 pub fn check(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
-
     // Execute sql
-        let mut stmt = prepare_sql(&kit);
+    let mut stmt = prepare_sql(&kit);
     let mut rows = match stmt.query([]) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to execute sql while fetching filtered scores from database, error: {}", e)
+        Err(e) => panic!(
+            "Unable to execute sql while fetching filtered scores from database, error: {}",
+            e
+        ),
     };
     let mut hits: HashMap<String, Vec<EnvCandidate>> = HashMap::new();
 
     // Go through rows
     loop {
-
         // Get next row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Define hit
@@ -49,7 +50,7 @@ pub fn check(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
             header_base: row.get(6)?,
             hdr_revcomp: row.get(7)?,
             hdr_translate: row.get(8)?,
-            rank: row.get(9)?
+            rank: row.get(9)?,
         };
 
         // Add to hits
@@ -58,16 +59,22 @@ pub fn check(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
     }
 
     // Process
-    let results: Vec<bool> = hits.iter().map(|c| {
-        let res = process_candidates(&kit, &c.1, &mut stats);
-        res
-    }).collect();
+    let results: Vec<bool> = hits
+        .iter()
+        .map(|c| {
+            let res = process_candidates(&kit, &c.1, &mut stats);
+            res
+        })
+        .collect();
 
     Ok(true)
 }
 
-fn process_candidates(kit: &ReporterKit, candidates: &Vec<EnvCandidate>, mut stats: &mut Stats) -> bool {
-
+fn process_candidates(
+    kit: &ReporterKit,
+    candidates: &Vec<EnvCandidate>,
+    mut stats: &mut Stats,
+) -> bool {
     // Get master
     let master = candidates.first().unwrap();
     let mut master_start: u16 = master.env_start;
@@ -80,13 +87,12 @@ fn process_candidates(kit: &ReporterKit, candidates: &Vec<EnvCandidate>, mut sta
         Some(r) => {
             master_start = r.0;
             master_end = r.1;
-        },
-        None => { }
+        }
+        None => {}
     };
 
     // GO through non-gene sequences
     for cand in candidates {
-
         // Skip, if master
         if cand.id == master.id {
             continue;
@@ -99,9 +105,13 @@ fn process_candidates(kit: &ReporterKit, candidates: &Vec<EnvCandidate>, mut sta
         }
 
         // Get overlap percent
-        let percent = match biotools::get_overlap_percent(master_start..master_end + 1, cand.env_start..cand.env_end + 1, true) {
+        let percent = match biotools::get_overlap_percent(
+            master_start..master_end + 1,
+            cand.env_start..cand.env_end + 1,
+            true,
+        ) {
             Some(r) => r,
-            None => continue
+            None => continue,
         };
 
         // Check percent
@@ -110,14 +120,13 @@ fn process_candidates(kit: &ReporterKit, candidates: &Vec<EnvCandidate>, mut sta
             break;
         }
 
-            // Check score
-            if master.score / cand.score >= CONFIG.search.env_score_discard_threshold {
+        // Check score
+        if master.score / cand.score >= CONFIG.search.env_score_discard_threshold {
             warn!("child transcript of base header {} in gene {} has overlap of {} and score of {}, discarding transcript.", cand.header_base, cand.gene_id, percent, cand.score);
             stats.discard_env_overlap(&kit, &cand);
         } else {
             info!("Transcript hdr {} in gene {} only overlaps master by {} percent, keeping transcript.", cand.header_base, cand.gene_id, percent);
         }
-
     }
 
     // Return if needed
@@ -133,15 +142,17 @@ fn process_candidates(kit: &ReporterKit, candidates: &Vec<EnvCandidate>, mut sta
     true
 }
 
-fn extend_master_coords(kit: &ReporterKit, master: &EnvCandidate, children: &Vec<EnvCandidate>) -> Option<(u16, u16)> {
-
+fn extend_master_coords(
+    kit: &ReporterKit,
+    master: &EnvCandidate,
+    children: &Vec<EnvCandidate>,
+) -> Option<(u16, u16)> {
     // Get pseudo masters
     let mut mst_start: u16 = master.env_start;
     let mut mst_end: u16 = master.env_end;
 
     // Go through children
     for c in children {
-
         if c.env_start < mst_start {
             mst_start = c.env_start;
         }
@@ -158,17 +169,29 @@ fn extend_master_coords(kit: &ReporterKit, master: &EnvCandidate, children: &Vec
 
     // Update master env_start coord
     if mst_start > 0 && mst_start < master.env_start {
-        let sql = format!("UPDATE {} SET env_start = {} WHERE id = ?", *TBL_HITS, mst_start);
+        let sql = format!(
+            "UPDATE {} SET env_start = {} WHERE id = ?",
+            *TBL_HITS, mst_start
+        );
         if let Err(e) = kit.memdb.execute(&sql, [&master.id]) {
-            panic!("Unable to update env_start on master during env overlap check, error: {}", e);
+            panic!(
+                "Unable to update env_start on master during env overlap check, error: {}",
+                e
+            );
         }
     }
 
     // Update master env_start coord
     if mst_end > master.env_end {
-        let sql = format!("UPDATE {} SET env_end = {} WHERE id = ?", *TBL_HITS, mst_end);
+        let sql = format!(
+            "UPDATE {} SET env_end = {} WHERE id = ?",
+            *TBL_HITS, mst_end
+        );
         if let Err(e) = kit.memdb.execute(&sql, [&master.id]) {
-            panic!("Unable to update env_end on master during env overlap check, error: {}", e);
+            panic!(
+                "Unable to update env_end on master during env overlap check, error: {}",
+                e
+            );
         }
     }
 
@@ -176,7 +199,6 @@ fn extend_master_coords(kit: &ReporterKit, master: &EnvCandidate, children: &Vec
 }
 
 fn prepare_sql(kit: &ReporterKit) -> Statement {
-
     // Set sql
     let sql = format!("
         WITH top_headers AS (
@@ -187,9 +209,11 @@ fn prepare_sql(kit: &ReporterKit) -> Statement {
     // Prepare sql
     let stmt = match kit.memdb.prepare(&sql) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to prepare SQL statement while fetching env dupe check sequences, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare SQL statement while fetching env dupe check sequences, error: {}",
+            e
+        ),
     };
 
     stmt
 }
-

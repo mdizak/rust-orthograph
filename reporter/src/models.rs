@@ -1,4 +1,3 @@
-
 pub struct HmmSearch {
     pub gene_id: String,
     pub aaseq_id: u32,
@@ -15,7 +14,7 @@ pub struct HmmSearch {
     pub env_start: u16,
     pub env_end: u16,
     pub header: String,
-    pub non_orf_sequence: String
+    pub non_orf_sequence: String,
 }
 
 pub struct Hit {
@@ -45,7 +44,7 @@ pub struct Hit {
     pub non_orf_sequence: String,
     pub est_sequence: String,
     pub hmm_sequence: String,
-    pub aa_sequence: String
+    pub aa_sequence: String,
 }
 
 pub struct OrfTranscript {
@@ -61,8 +60,5 @@ pub struct OrfTranscript {
     pub aa_start_hmm: u16,
     pub aa_end_hmm: u16,
     pub translated_seq: String,
-    pub cdna_seq: String
+    pub cdna_seq: String,
 }
-
-
-

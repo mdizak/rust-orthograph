@@ -1,33 +1,32 @@
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::str;
-use lazy_static::lazy_static;
 
 lazy_static! {
     pub static ref NT_TABLE: HashMap<String, String> = instantiate_nt_table();
 }
 
 pub fn translate(sequence: &String) -> String {
-
     // Translate
-    let chunks = sequence.as_bytes().chunks(3).map(|buf| unsafe { str::from_utf8_unchecked(buf) }).collect::<Vec<&str>>();
+    let chunks = sequence
+        .as_bytes()
+        .chunks(3)
+        .map(|buf| unsafe { str::from_utf8_unchecked(buf) })
+        .collect::<Vec<&str>>();
 
     let mut res: String = "".to_owned();
     for c in chunks {
         let s = match NT_TABLE.get(&c.to_string()) {
             Some(r) => r,
-            None => continue
+            None => continue,
         };
         res.push_str(s.as_str());
     }
-
-
-
 
     res.to_string()
 }
 
 pub fn instantiate_nt_table() -> HashMap<String, String> {
-
     // Define nt table
     let mut nt_table: HashMap<String, String> = HashMap::new();
     nt_table.insert("TTT".to_string(), "F".to_string());
@@ -98,5 +97,3 @@ pub fn instantiate_nt_table() -> HashMap<String, String> {
     // Return
     nt_table
 }
-
-

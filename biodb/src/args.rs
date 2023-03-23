@@ -1,4 +1,4 @@
-use clap::{Arg, App};
+use clap::{App, Arg};
 use std::ops::Range;
 
 pub struct Args {
@@ -10,13 +10,11 @@ pub struct Args {
     pub seq_type: String,
     pub start: u32,
     pub limit: i32,
-    pub coords: Range<usize>
+    pub coords: Range<usize>,
 }
 
 impl Args {
-
     pub fn new() -> Self {
-
         // Specify cli arguments
         let matches = App::new("biodb")
             .version("0.1")
@@ -69,11 +67,23 @@ impl Args {
 
         // Get coords
         let coords_str = matches.value_of("coords").unwrap_or("0-0").split("-");
-        let coords = coords_str.into_iter().map(|c| c.parse::<usize>().unwrap()).collect::<Vec<usize>>();
+        let coords = coords_str
+            .into_iter()
+            .map(|c| c.parse::<usize>().unwrap())
+            .collect::<Vec<usize>>();
 
         // Parse input dir
         let parts = input_dir.split("/");
-        let sqlite_file = format!("{}/{}.sqlite", input_dir, parts.last().unwrap().trim_end_matches("/").trim_end_matches(".fa").to_string());
+        let sqlite_file = format!(
+            "{}/{}.sqlite",
+            input_dir,
+            parts
+                .last()
+                .unwrap()
+                .trim_end_matches("/")
+                .trim_end_matches(".fa")
+                .to_string()
+        );
 
         // Return
         Self {
@@ -85,12 +95,7 @@ impl Args {
             seq_type: seq_type.to_string(),
             start: start.parse::<u32>().unwrap(),
             limit: limit.parse::<i32>().unwrap(),
-            coords: coords[0]..coords[1]
+            coords: coords[0]..coords[1],
         }
-
-    } 
-
+    }
 }
-
-
-

@@ -1,20 +1,19 @@
 #![allow(warnings)]
 use crate::reporter::Reporter;
+use biotools::CONFIG;
 use env_logger::{Builder, Target};
 use log::{info, LevelFilter};
 use std::io::Write;
 use std::time::Instant;
-use biotools::CONFIG;
 
-mod reporter;
 mod algorithms;
-mod output;
-mod stats;
 mod models;
+mod output;
+mod reporter;
+mod stats;
 mod temp_tables;
 
 fn main() {
-
     // Greeting
     greeting();
 
@@ -32,7 +31,6 @@ fn main() {
 }
 
 fn greeting() {
-
     println!("Orthograph: Orthology prediction using a Graph-based,");
     println!("Reciprocal Approach with Profile Hidden Markov models");
     println!("      Originally in Perl by Malte Petersen <mptrsen@uni-bonn.de> (2015)");
@@ -42,7 +40,6 @@ fn greeting() {
 }
 
 fn init_logger() {
-
     // Get log level
     let mut log_level = LevelFilter::Warn;
     if CONFIG.log.verbose == true {
@@ -53,12 +50,10 @@ fn init_logger() {
 
     // Init logger
     Builder::new()
-        .format(|buf, record| {
-            writeln!(buf, "{}: {}", record.level(), record.args())
-        }).filter(None, log_level).target(Target::Stdout).init();
+        .format(|buf, record| writeln!(buf, "{}: {}", record.level(), record.args()))
+        .filter(None, log_level)
+        .target(Target::Stdout)
+        .init();
 
     info!("Initialized logging at {}", CONFIG.log.logfile);
-    }
-
-
-
+}

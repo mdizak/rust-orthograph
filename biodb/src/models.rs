@@ -1,6 +1,6 @@
 extern crate serde;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HmmSearch {
@@ -17,7 +17,7 @@ pub struct HmmSearch {
     pub hmm_start: u16,
     pub hmm_end: u16,
     pub seq_type: u8,
-    pub blast: Vec<Blast>
+    pub blast: Vec<Blast>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -30,14 +30,11 @@ pub struct Blast {
     pub blast_start: u16,
     pub blast_end: u16,
     pub header: String,
-    pub seq_type: u8
+    pub seq_type: u8,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sequence {
     pub seq_type: u8,
-    pub sequence: String
+    pub sequence: String,
 }
-
-
-

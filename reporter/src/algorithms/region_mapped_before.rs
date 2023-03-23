@@ -1,15 +1,14 @@
-use crate::reporter::ReporterKit;
 use crate::models::Hit;
+use crate::reporter::ReporterKit;
 use biotools::db::sqlite::TBL_HITS;
 use nclist::NClist;
 use std::ops::Range;
 
 pub fn check(kit: &ReporterKit, hit: &Hit, coords: &Vec<Range<u16>>) -> bool {
-
     // Get overlaps
     let nc = match NClist::from_vec(coords.to_vec()) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to check region mapped before overlap, error: {}", e)
+        Err(e) => panic!("Unable to check region mapped before overlap, error: {}", e),
     };
 
     // Check for overlaps
@@ -34,4 +33,3 @@ pub fn check(kit: &ReporterKit, hit: &Hit, coords: &Vec<Range<u16>>) -> bool {
     // No overlap found
     false
 }
-

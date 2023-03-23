@@ -4,17 +4,25 @@ use biotools::CONFIG;
 use log::{info, warn};
 
 pub fn check(kit: &ReporterKit, candidate: &HmmSearch) -> Option<(u32, u16, u16)> {
-
     // Get blast results
-    info!("Getting blast results for '{}' (hmm search id# {}, alignment score {})", candidate.header, candidate.hmm_id, candidate.score); 
+    info!(
+        "Getting blast results for '{}' (hmm search id# {}, alignment score {})",
+        candidate.header, candidate.hmm_id, candidate.score
+    );
     let blasts = match kit.db.get_hmm_blast_results(candidate.hmm_id) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to obtain blast results for hmm search id# {}, error: {}", candidate.hmm_id, e)
+        Err(e) => panic!(
+            "Unable to obtain blast results for hmm search id# {}, error: {}",
+            candidate.hmm_id, e
+        ),
     };
 
     // Check for zero blasts
     if blasts.len() == 0 {
-        warn!("No blast results found for '{}' (gene '{}', hmm search id# {}), skipping.", candidate.header, candidate.gene_id, candidate.hmm_id);
+        warn!(
+            "No blast results found for '{}' (gene '{}', hmm search id# {}), skipping.",
+            candidate.header, candidate.gene_id, candidate.hmm_id
+        );
         return None;
     }
 
@@ -31,7 +39,10 @@ pub fn check(kit: &ReporterKit, candidate: &HmmSearch) -> Option<(u32, u16, u16)
 
         // Check if hit occurs in hmm
         if kit.aaseq_by_gene[&candidate.gene_id].contains(&blast.target) {
-            info!("    Reciprocal hit {} ({}) used in {}!", blast.target, ref_taxon, candidate.gene_id);
+            info!(
+                "    Reciprocal hit {} ({}) used in {}!",
+                blast.target, ref_taxon, candidate.gene_id
+            );
 
             // Check reference taxa
             if !&kit.reference_taxa.contains(&ref_taxon) {
@@ -55,13 +66,16 @@ pub fn check(kit: &ReporterKit, candidate: &HmmSearch) -> Option<(u32, u16, u16)
 
         // Check one ahead for same score
         //} else if blasts.len() >= (num+1) && blasts[num+1].score == blast.score {
-            //info!("    reciprocal hit {} ({}) (gene: {}) not used in this HMM, but next one has same score, skipping this hit", blast.target, ref_taxon, candidate.gene_id);
-            //continue;
+        //info!("    reciprocal hit {} ({}) (gene: {}) not used in this HMM, but next one has same score, skipping this hit", blast.target, ref_taxon, candidate.gene_id);
+        //continue;
 
         // Mismatch
         } else {
             mismatches += 1;
-            warn!("    reciprocal hit {} ({}) not used in this HMM (mismatch #{})", blast.target, ref_taxon, mismatches );
+            warn!(
+                "    reciprocal hit {} ({}) not used in this HMM (mismatch #{})",
+                blast.target, ref_taxon, mismatches
+            );
 
             // Check for too many mismatches
             if mismatches > CONFIG.search.max_mismatches {
@@ -69,11 +83,8 @@ pub fn check(kit: &ReporterKit, candidate: &HmmSearch) -> Option<(u32, u16, u16)
                 return None;
             }
         }
-
     }
 
     // Not reciprocal
     None
 }
-
-

@@ -1,36 +1,33 @@
 extern crate serde;
 
+use crate::database::Database;
 use crate::models::{HmmSearch, Sequence};
 use crate::sqlite::Sqlite;
-use crate::database::Database;
+use crate::ROCKSDB;
+use log::info;
 use rusqlite::Error;
 use std::io;
 use std::io::Write;
-use crate::ROCKSDB;
-use log::info;
 
 pub fn upgrade() {
-
     // Connect to SQLite
     let sqlite = Sqlite::new();
 
     // Transfer est sequences
     match transfer_est_sequences(&sqlite) {
-        Ok(_) => { },
-        Err(e) => panic!("Unable to transfer est sequences, error: {}", e)
+        Ok(_) => {}
+        Err(e) => panic!("Unable to transfer est sequences, error: {}", e),
     };
 
     // Transfer hmm searches
     match transfer_hmm_searches(&sqlite) {
-        Ok(_) => { },
-        Err(e) => panic!("Unable to transfer hmm searches, error: {}", e)
+        Ok(_) => {}
+        Err(e) => panic!("Unable to transfer hmm searches, error: {}", e),
     };
     info!("Successfully transferred SQLite database to RocksDB.  If desired, you may now delete the SQLite database from your hard drive.");
-
 }
 
 fn transfer_hmm_searches(sqlite: &Sqlite) -> Result<(), Error> {
-
     // Get total est sequences
     let total: u64 = sqlite.get_total("orthograph_hmmsearch");
     info!("Transferring {} hmm searches to RocksDB", total);
@@ -39,17 +36,19 @@ fn transfer_hmm_searches(sqlite: &Sqlite) -> Result<(), Error> {
     let mut stmt = sqlite.conn.prepare("SELECT s.*,e.header,e.type FROM orthograph_hmmsearch s, orthograph_ests e WHERE s.target = e.digest ORDER BY id").unwrap();
     let mut rows = match stmt.query([]) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to execute SQL statement to retrieve est sequencs, error: {}", e)
+        Err(e) => panic!(
+            "Unable to execute SQL statement to retrieve est sequencs, error: {}",
+            e
+        ),
     };
 
     // Go through rows
     let mut x = 0;
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Get blast results
@@ -72,7 +71,7 @@ fn transfer_hmm_searches(sqlite: &Sqlite) -> Result<(), Error> {
             hmm_start: row.get(11)?,
             hmm_end: row.get(12)?,
             seq_type: row.get(14)?,
-            blast: blast_results
+            blast: blast_results,
         };
 
         // Set key and json
@@ -89,40 +88,44 @@ fn transfer_hmm_searches(sqlite: &Sqlite) -> Result<(), Error> {
     }
 
     // Finish
-        println!("");
+    println!("");
     info!("Successfully transferred total of {} hmm searches", x + 1);
 
     Ok(())
 }
 
 fn transfer_est_sequences(sqlite: &Sqlite) -> Result<(), Error> {
-
     // Get total est sequences
     let total_est: u64 = sqlite.get_total("orthograph_ests");
     info!("Transferring {} est sequences to RocksDB", total_est);
 
     // Execute sql statement
-    let mut stmt = sqlite.conn.prepare("SELECT id,type,header,sequence FROM orthograph_ests ORDER BY id").unwrap();
+    let mut stmt = sqlite
+        .conn
+        .prepare("SELECT id,type,header,sequence FROM orthograph_ests ORDER BY id")
+        .unwrap();
     let mut rows = match stmt.query([]) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to execute SQL statement to retrieve est sequencs, error: {}", e)
+        Err(e) => panic!(
+            "Unable to execute SQL statement to retrieve est sequencs, error: {}",
+            e
+        ),
     };
 
     // Go through rows
     let mut x = 0;
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
         let header: String = row.get(2)?;
 
-            // Define sequences
+        // Define sequences
         let seq = Sequence {
             seq_type: row.get(1)?,
-            sequence: row.get(3)?
+            sequence: row.get(3)?,
         };
 
         // Add to RocksDB
@@ -138,6 +141,3 @@ fn transfer_est_sequences(sqlite: &Sqlite) -> Result<(), Error> {
 
     Ok(())
 }
-
-
-

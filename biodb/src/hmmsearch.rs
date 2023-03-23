@@ -2,12 +2,11 @@ extern crate serde;
 
 use crate::database::Database;
 use crate::{BIODB_ARGS, ROCKSDB};
+use log::error;
 use std::io::{self, Write};
 use std::string::String;
-use log::error;
 
 pub fn get() {
-
     // Get hmm search
     let key = format!("hmmsearch:{}", BIODB_ARGS.header);
     let json: String = match ROCKSDB.get(&key) {
@@ -23,7 +22,6 @@ pub fn get() {
 }
 
 pub fn get_multi() {
-
     // Initialize
     let mut iter = ROCKSDB.db.raw_iterator();
     let key = format!("hmmsearch:{}", BIODB_ARGS.start);
@@ -33,10 +31,9 @@ pub fn get_multi() {
     // Go through rows
     iter.seek(&key.as_bytes());
     while iter.valid() {
-
         let json = match iter.value() {
             Some(r) => String::from_utf8(r.to_vec()).unwrap(),
-            None => break
+            None => break,
         };
 
         if x > 0 {
@@ -54,5 +51,3 @@ pub fn get_multi() {
 
     io::stdout().write_all("]".as_bytes()).unwrap();
 }
-
-

@@ -1,22 +1,22 @@
 use crate::reporter::ReporterKit;
-use rusqlite::{Error, Statement};
-use biotools::db::sqlite::{TBL_HITS, TBL_TAXA, TBL_SEQUENCE_PAIRS, TBL_LOGS};
-use std::fs::File;
-use std::path::Path;
-use std::io::Write;
-use log::info;
+use biotools::db::sqlite::{TBL_HITS, TBL_LOGS, TBL_SEQUENCE_PAIRS, TBL_TAXA};
 use biotools::CONFIG;
+use log::info;
+use rusqlite::{Error, Statement};
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
 
 struct GeneCount {
     gene_id: String,
-    count: u32
+    count: u32,
 }
 
 struct CoreSequence {
     gene_id: String,
     taxa_name: String,
     header: String,
-    sequence: String
+    sequence: String,
 }
 
 struct Sequence {
@@ -30,31 +30,38 @@ struct Sequence {
     cdna_start: u16,
     cdna_end: u16,
     aa_seq: String,
-    cdna_seq: String
+    cdna_seq: String,
 }
 
 pub fn run(kit: &ReporterKit) -> Result<bool, Error> {
-
     // Prepare sql
-    let sql = format!("SELECT gene_id,count(gene_id) FROM {} GROUP BY gene_id ORDER BY gene_id", *TBL_HITS);
+    let sql = format!(
+        "SELECT gene_id,count(gene_id) FROM {} GROUP BY gene_id ORDER BY gene_id",
+        *TBL_HITS
+    );
     let mut stmt = match kit.memdb.prepare(&sql) {
         Ok(r) => r,
-        Err(e)  => panic!("Unable to prepare sql to select genes for finalization, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare sql to select genes for finalization, error: {}",
+            e
+        ),
     };
     info!("Writing sequence files of all genes");
 
     // GO through rows
     let mut rows = match stmt.query([]) {
-        Ok(r) =>r, 
-        Err(e) => panic!("Unable to execute sql to gather genes during writing of sequence files, error: {}", e)
+        Ok(r) => r,
+        Err(e) => panic!(
+            "Unable to execute sql to gather genes during writing of sequence files, error: {}",
+            e
+        ),
     };
     // GO through rows
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Set variables
@@ -70,10 +77,9 @@ pub fn run(kit: &ReporterKit) -> Result<bool, Error> {
     Ok(true)
 }
 
-fn save_gene(kit: &ReporterKit, gene_id: &String) { 
-
+fn save_gene(kit: &ReporterKit, gene_id: &String) {
     // Prepare
-        let tmp_gene = format!("{}", gene_id);
+    let tmp_gene = format!("{}", gene_id);
     let (mut aa_fh, mut nt_fh) = create_files(tmp_gene);
 
     // Save core sequences
@@ -82,29 +88,34 @@ fn save_gene(kit: &ReporterKit, gene_id: &String) {
 
     // Save sequences
     match write_sequences(&kit, &gene_id, &mut aa_fh, "aa".to_string()) {
-            Ok(r) => r,
-            Err(e) => panic!("Unable to save sequences, {}", e)
+        Ok(r) => r,
+        Err(e) => panic!("Unable to save sequences, {}", e),
     };
     write_sequences(&kit, &gene_id, &mut nt_fh, "nt".to_string());
-
 }
 
-fn write_core_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, seq_type: String) -> Result<bool, Error> {
-
+fn write_core_sequences(
+    kit: &ReporterKit,
+    gene_id: &String,
+    mut fh: &mut File,
+    seq_type: String,
+) -> Result<bool, Error> {
     // Execute sql
     let mut stmt = prepare_core_sql(&kit, seq_type);
     let mut rows = match stmt.query([&gene_id]) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to execute sql to select hits while writing final sequence files, error: {}", e)
+        Err(e) => panic!(
+            "Unable to execute sql to select hits while writing final sequence files, error: {}",
+            e
+        ),
     };
 
     // GO through rows
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Define sequence
@@ -112,7 +123,7 @@ fn write_core_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, 
             gene_id: row.get(0)?,
             taxa_name: row.get(1)?,
             header: row.get(2)?,
-            sequence: row.get(3)?
+            sequence: row.get(3)?,
         };
 
         // Format header
@@ -122,8 +133,9 @@ fn write_core_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, 
             seq.header,
             format!("1-{}", seq.sequence.len().to_string()).to_string(),
             ".".to_string(),
-            ".".to_string()
-        ].join(&CONFIG.search.header_seperator);
+            ".".to_string(),
+        ]
+        .join(&CONFIG.search.header_seperator);
 
         // Save to aa file
         let line = format!(">{}\n{}\n", header, seq.sequence);
@@ -134,22 +146,28 @@ fn write_core_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, 
     Ok(true)
 }
 
-fn write_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, seq_type: String) -> Result<bool, Error> {
-
+fn write_sequences(
+    kit: &ReporterKit,
+    gene_id: &String,
+    mut fh: &mut File,
+    seq_type: String,
+) -> Result<bool, Error> {
     // Execute sql
     let mut stmt = prepare_sequence_sql(&kit);
     let mut rows = match stmt.query([&gene_id]) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to execute sql to select hits while writing final sequence files, error: {}", e)
+        Err(e) => panic!(
+            "Unable to execute sql to select hits while writing final sequence files, error: {}",
+            e
+        ),
     };
 
     // GO through rows
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Define sequence
@@ -164,7 +182,7 @@ fn write_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, seq_t
             cdna_start: row.get(7)?,
             cdna_end: row.get(8)?,
             aa_seq: row.get(9)?,
-            cdna_seq: row.get(10)?
+            cdna_seq: row.get(10)?,
         };
 
         // Get rf
@@ -177,8 +195,9 @@ fn write_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, seq_t
             seq.header,
             format!("{}-{}", seq.aa_start, seq.aa_end),
             rf.to_string(),
-            seq.taxa_name
-        ].join(&CONFIG.search.header_seperator);
+            seq.taxa_name,
+        ]
+        .join(&CONFIG.search.header_seperator);
 
         // Get sequence
         let sequence = if seq_type == "nt".to_string() {
@@ -194,17 +213,18 @@ fn write_sequences(kit: &ReporterKit, gene_id: &String, mut fh: &mut File, seq_t
     }
 
     Ok(true)
-
 }
 
 fn create_files(gene_id: String) -> (File, File) {
-
     // Open aa file
     let aa_filename = format!("{}/aa/{}.aa.fa", CONFIG.report.output_dir, gene_id);
     let aa_path = Path::new(&aa_filename);
     let mut aa_fh = match File::create(&aa_path) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to open file for writing, {}, error: {}", aa_filename, e)
+        Err(e) => panic!(
+            "Unable to open file for writing, {}, error: {}",
+            aa_filename, e
+        ),
     };
 
     // Open nt file
@@ -212,7 +232,10 @@ fn create_files(gene_id: String) -> (File, File) {
     let nt_path = Path::new(&nt_filename);
     let mut nt_fh = match File::create(&nt_path) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to open file for writing, {}, error: {}", nt_filename, e)
+        Err(e) => panic!(
+            "Unable to open file for writing, {}, error: {}",
+            nt_filename, e
+        ),
     };
 
     // Return
@@ -220,12 +243,12 @@ fn create_files(gene_id: String) -> (File, File) {
 }
 
 fn prepare_core_sql(kit: &ReporterKit, seq_type: String) -> Statement {
-
     // Initialize
     let seq_table = format!("input.{}_{}seqs", CONFIG.db.table_prefix, seq_type);
 
     // Define sql
-    let sql = format!("SELECT l.ortholog_gene_id, t.name, a.header, a.sequence 
+    let sql = format!(
+        "SELECT l.ortholog_gene_id, t.name, a.header, a.sequence 
         FROM {} a, {} t, {} p, {} l 
     WHERE 
         l.ortholog_gene_id = ? AND  
@@ -233,7 +256,9 @@ fn prepare_core_sql(kit: &ReporterKit, seq_type: String) -> Statement {
         l.sequence_pair = p.id AND 
         a.taxid = t.id 
         ORDER BY t.name, a.header
-    ", seq_table, *TBL_TAXA, *TBL_SEQUENCE_PAIRS, *TBL_LOGS, seq_type);
+    ",
+        seq_table, *TBL_TAXA, *TBL_SEQUENCE_PAIRS, *TBL_LOGS, seq_type
+    );
 
     // Prepare sql
     let stmt = match kit.memdb.prepare(&sql) {
@@ -244,11 +269,10 @@ fn prepare_core_sql(kit: &ReporterKit, seq_type: String) -> Statement {
     stmt
 }
 
-
 fn prepare_sequence_sql(kit: &ReporterKit) -> Statement {
-
     // SDefine sql
-    let sql = format!("SELECT 
+    let sql = format!(
+        "SELECT 
         h.gene_id,
         h.header_base,
         h.header_revcomp,
@@ -269,19 +293,27 @@ fn prepare_sequence_sql(kit: &ReporterKit) -> Statement {
             LENGTH(o.translated_seq) >= {} AND 
             LENGTH(o.cdna_seq) >= {} 
             GROUP BY o.translated_seq ORDER BY h.id 
-        ", *TBL_HITS, CONFIG.db.table_prefix, *TBL_TAXA, CONFIG.search.min_transcript_length, CONFIG.search.min_transcript_length);
+        ",
+        *TBL_HITS,
+        CONFIG.db.table_prefix,
+        *TBL_TAXA,
+        CONFIG.search.min_transcript_length,
+        CONFIG.search.min_transcript_length
+    );
 
-        // Prepare sql
+    // Prepare sql
     let stmt = match kit.memdb.prepare(&sql) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to prepare SQL to retrieve hits during sequence finalization, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare SQL to retrieve hits during sequence finalization, error: {}",
+            e
+        ),
     };
 
     stmt
 }
 
 fn get_rf(revcomp: &u8, translate: &u8, seq_type: &str) -> String {
-
     // Check for nt
     if seq_type == "nt" {
         return String::from(".");
@@ -298,4 +330,3 @@ fn get_rf(revcomp: &u8, translate: &u8, seq_type: &str) -> String {
 
     "".to_string()
 }
-

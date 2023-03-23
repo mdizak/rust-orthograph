@@ -1,10 +1,10 @@
 use crate::reporter::ReporterKit;
 use crate::stats::Stats;
 use biotools::db::sqlite::TBL_HITS;
-use std::collections::HashMap;
-use rusqlite::{Statement, Error};
 use biotools::CONFIG;
 use log::{info, warn};
+use rusqlite::{Error, Statement};
+use std::collections::HashMap;
 
 struct HmmCandidate {
     id: u32,
@@ -16,7 +16,7 @@ struct HmmCandidate {
     header_base: String,
     header_revcomp: u8,
     header_translate: u8,
-    rank: u16
+    rank: u16,
 }
 
 pub struct HmmDiscard {
@@ -24,22 +24,24 @@ pub struct HmmDiscard {
     pub gene_id: String,
     pub header_base: String,
     pub revcomp: u8,
-    pub translate: u8
+    pub translate: u8,
 }
 
 pub fn check(kit: &ReporterKit, mut stats: &mut Stats) {
-
     // Gather candidates
     let candidates = match gather_candidates(&kit) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to gather hmm overlap candidates, error: {}", e)
+        Err(e) => panic!("Unable to gather hmm overlap candidates, error: {}", e),
     };
 
     // Process candidates
-    let discards: Vec<Vec<HmmDiscard>> = candidates.iter().map(|c| {
-        let res: Vec<HmmDiscard> = process_candidates(&c.1,);
-        res
-        }).collect();
+    let discards: Vec<Vec<HmmDiscard>> = candidates
+        .iter()
+        .map(|c| {
+            let res: Vec<HmmDiscard> = process_candidates(&c.1);
+            res
+        })
+        .collect();
 
     // Discard candidates
     for group in discards {
@@ -47,26 +49,23 @@ pub fn check(kit: &ReporterKit, mut stats: &mut Stats) {
             stats.discard_hmm_overlap(&kit, &hit);
         }
     }
-
 }
 
 fn gather_candidates(kit: &ReporterKit) -> Result<HashMap<String, Vec<HmmCandidate>>, Error> {
-
     // Execute sql
     let mut stmt = prepare_sql(&kit);
     let mut rows = match stmt.query([]) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to execute sql for hmm overlap check, error: {}", e)
+        Err(e) => panic!("Unable to execute sql for hmm overlap check, error: {}", e),
     };
 
     // Go through rows
     let mut candidates: HashMap<String, Vec<HmmCandidate>> = HashMap::new();
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Set hmm candidate
@@ -80,7 +79,7 @@ fn gather_candidates(kit: &ReporterKit) -> Result<HashMap<String, Vec<HmmCandida
             header_base: row.get(6)?,
             header_revcomp: row.get(7)?,
             header_translate: row.get(8)?,
-            rank: row.get(9)?
+            rank: row.get(9)?,
         };
 
         // Add to results
@@ -92,9 +91,7 @@ fn gather_candidates(kit: &ReporterKit) -> Result<HashMap<String, Vec<HmmCandida
     Ok(candidates)
 }
 
-
 fn prepare_sql(kit: &ReporterKit) -> Statement {
-
     // Set sql
     let sql = format!("
         WITH top_headers AS (
@@ -105,14 +102,16 @@ fn prepare_sql(kit: &ReporterKit) -> Statement {
     // Prepare sql
     let mut stmt = match kit.memdb.prepare(&sql) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to prepare SQL statement while fetching env dupe check sequences, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare SQL statement while fetching env dupe check sequences, error: {}",
+            e
+        ),
     };
 
     stmt
 }
 
 fn process_candidates(candidates: &Vec<HmmCandidate>) -> Vec<HmmDiscard> {
-
     // Initialize
     let mut discards: Vec<u32> = Vec::new();
     let mut hmm_discards: Vec<HmmDiscard> = Vec::new();
@@ -120,11 +119,10 @@ fn process_candidates(candidates: &Vec<HmmCandidate>) -> Vec<HmmDiscard> {
 
     // Go through hits
     loop {
-
         // Get next hit
         let hit_a = match hits.pop() {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Skip, if needed
@@ -134,16 +132,19 @@ fn process_candidates(candidates: &Vec<HmmCandidate>) -> Vec<HmmDiscard> {
 
         // Go through remaining hits
         for hit_b in &hits {
-
             // Skip, if needed
             if discards.contains(&hit_b.id) || hit_a.header_base == hit_b.header_base {
                 continue;
             }
 
             // Get percent overlap
-            let percent = match biotools::get_overlap_percent(hit_a.hmm_start..hit_a.hmm_end + 1, hit_b.hmm_start..hit_b.hmm_end + 1, false) {
+            let percent = match biotools::get_overlap_percent(
+                hit_a.hmm_start..hit_a.hmm_end + 1,
+                hit_b.hmm_start..hit_b.hmm_end + 1,
+                false,
+            ) {
                 Some(r) => r,
-                None => continue
+                None => continue,
             };
 
             // Check overlap percent
@@ -157,12 +158,12 @@ fn process_candidates(candidates: &Vec<HmmCandidate>) -> Vec<HmmDiscard> {
             }
 
             // Discard transcript
-            hmm_discards.push( HmmDiscard {
+            hmm_discards.push(HmmDiscard {
                 hit_id: hit_b.id,
                 gene_id: format!("{}", hit_b.gene_id),
                 header_base: format!("{}", hit_b.header_base),
                 revcomp: hit_b.header_revcomp,
-                translate: hit_b.header_translate
+                translate: hit_b.header_translate,
             });
             discards.push(hit_b.id);
 
@@ -171,7 +172,4 @@ fn process_candidates(candidates: &Vec<HmmCandidate>) -> Vec<HmmDiscard> {
     }
 
     hmm_discards
-
 }
-
-

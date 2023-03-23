@@ -1,28 +1,32 @@
-use crate::reporter::ReporterKit;
-use biotools::db::sqlite::{TBL_HMMSEARCH, TBL_LOGS, TBL_ESTS, TBL_HITS, TBL_SEQUENCE_PAIRS};
-use crate::models::HmmSearch;
-use rusqlite::{Statement, Error};
 use crate::algorithms::is_reciprocal_hit;
+use crate::models::HmmSearch;
+use crate::reporter::ReporterKit;
 use crate::stats::Stats;
+use biotools::db::sqlite::{TBL_ESTS, TBL_HITS, TBL_HMMSEARCH, TBL_LOGS, TBL_SEQUENCE_PAIRS};
 use biotools::CONFIG;
 use log::{info, warn};
 use rusqlite::ToSql;
-
+use rusqlite::{Error, Statement};
 
 pub fn run(kit: &ReporterKit) -> Result<Stats, Error> {
-
     // Prepare and execute sql
     let mut stmt = prepare_sql(&kit);
     let mut rows = match stmt.query([&kit.species_id, &kit.set_id]) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to execute sql while fetching filtered scores from database, error: {}", e)
+        Err(e) => panic!(
+            "Unable to execute sql while fetching filtered scores from database, error: {}",
+            e
+        ),
     };
 
     // Prepare insert sql statement
     let insert_sql = format!("INSERT INTO {} (hmmsearch_id, taxid, aaseq_id, ntseq_id, blast_target, gene_id, score, digest, evalue, hmm_start, hmm_end, ali_start, ali_end, env_start, env_end, blast_start, blast_end, header_base, header_full, header_revcomp, header_translate, non_orf_sequence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", *TBL_HITS);
     let mut insert_stmt = match kit.memdb.prepare(&insert_sql) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to prepare SQL statement for insert into hits table, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare SQL statement for insert into hits table, error: {}",
+            e
+        ),
     };
 
     // Instantiate stats
@@ -30,11 +34,10 @@ pub fn run(kit: &ReporterKit) -> Result<Stats, Error> {
 
     // Go through rows
     loop {
-
         // Get next row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Define search
@@ -54,11 +57,13 @@ pub fn run(kit: &ReporterKit) -> Result<Stats, Error> {
             env_start: row.get(13)?,
             env_end: row.get(14)?,
             header: row.get(15)?,
-            non_orf_sequence: row.get(16)?
+            non_orf_sequence: row.get(16)?,
         };
 
         // Skip, if not in list of wanted genes
-        if CONFIG.report.wanted_genes.len() > 0 && !CONFIG.report.wanted_genes.contains(&cand.gene_id) {
+        if CONFIG.report.wanted_genes.len() > 0
+            && !CONFIG.report.wanted_genes.contains(&cand.gene_id)
+        {
             warn!("Not in list of wanted genes, skipping {}", cand.gene_id);
             continue;
         }
@@ -74,8 +79,10 @@ pub fn run(kit: &ReporterKit) -> Result<Stats, Error> {
         };
 
         // Success message
-        info!("Orthology detected for {}! Queueing for further checks: {}[{}:{}] to {}.", 
-            cand.gene_id, cand.header, cand.hmm_start, cand.hmm_end, cand.gene_id);
+        info!(
+            "Orthology detected for {}! Queueing for further checks: {}[{}:{}] to {}.",
+            cand.gene_id, cand.header, cand.hmm_start, cand.hmm_end, cand.gene_id
+        );
 
         // Translate header
         let (hdr_base, hdr_revcomp, hdr_translate) = biotools::translate_header(&cand.header);
@@ -103,12 +110,14 @@ pub fn run(kit: &ReporterKit) -> Result<Stats, Error> {
             &cand.header.trim_end_matches(" "),
             &hdr_revcomp,
             &hdr_translate,
-            &cand.non_orf_sequence
+            &cand.non_orf_sequence,
         ]) {
             Ok(res) => res,
-            Err(e) => panic!("Unable to insert into temporary hits table with error: {}", e)
+            Err(e) => panic!(
+                "Unable to insert into temporary hits table with error: {}",
+                e
+            ),
         };
-
     }
 
     // Return
@@ -116,8 +125,8 @@ pub fn run(kit: &ReporterKit) -> Result<Stats, Error> {
 }
 
 fn prepare_sql(kit: &ReporterKit) -> Statement {
-
-    let sql = format!("SELECT DISTINCT 
+    let sql = format!(
+        "SELECT DISTINCT 
         l.ortholog_gene_id,
         p.aa_seq,
         p.nt_seq,
@@ -145,17 +154,24 @@ fn prepare_sql(kit: &ReporterKit) -> Statement {
             s.taxid = ? AND 
             l.setid = ? AND 
             (s.ali_end - s.ali_start) + 1 >= {} 
-        GROUP BY s.id ORDER BY s.score DESC", 
-        *TBL_HMMSEARCH, *TBL_LOGS, *TBL_ESTS, *TBL_SEQUENCE_PAIRS, &CONFIG.search.hmmsearch_threshold, &CONFIG.search.min_transcript_length);
+        GROUP BY s.id ORDER BY s.score DESC",
+        *TBL_HMMSEARCH,
+        *TBL_LOGS,
+        *TBL_ESTS,
+        *TBL_SEQUENCE_PAIRS,
+        &CONFIG.search.hmmsearch_threshold,
+        &CONFIG.search.min_transcript_length
+    );
 
-        // Prepare
+    // Prepare
     let stmt = match kit.db.conn.prepare(&sql) {
         Ok(res) => res,
-        Err(e) => panic!("Unable to prepare SQL statement to extract reciprocal hits, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare SQL statement to extract reciprocal hits, error: {}",
+            e
+        ),
     };
 
     // Return
     stmt
 }
-
-

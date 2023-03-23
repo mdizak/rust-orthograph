@@ -1,15 +1,17 @@
+use biotools::CONFIG;
 use rusqlite::Connection;
 use std::collections::HashMap;
-use biotools::CONFIG;
 
 pub fn setup(conn: &Connection) {
-
     // Ensure we're down
     teardown(&conn);
     let mut table_sql = HashMap::new();
 
     // Hits table
-    table_sql.insert("hits", format!("CREATE TABLE {}_hits (
+    table_sql.insert(
+        "hits",
+        format!(
+            "CREATE TABLE {}_hits (
         id INTEGER PRIMARY KEY,
         is_overlap BOOLEAN NOT NULL DEFAULT true,
         hmmsearch_id unsigned integer not null,
@@ -34,10 +36,16 @@ pub fn setup(conn: &Connection) {
         header_revcomp BOOLEAN NOT NULL DEFAULT false,
         header_translate UNSIGNED INTEGER NOT NULL,
         non_orf_sequence BLOB NOT NULL
-    )", CONFIG.db.table_prefix));
+    )",
+            CONFIG.db.table_prefix
+        ),
+    );
 
     // orf table
-    table_sql.insert("orf", format!("CREATE TABLE {}_orf (
+    table_sql.insert(
+        "orf",
+        format!(
+            "CREATE TABLE {}_orf (
         id INTEGER PRIMARY KEY,
         hit_id UNSIGNED INTEGER NOT NULL,
         taxid UNSIGNED INTEGER NOT NULL,
@@ -53,30 +61,34 @@ pub fn setup(conn: &Connection) {
         aa_end_hmm UNSIGNED INTEGER NOT NULL,
         translated_seq BLOB NOT NULL,
         cdna_seq MEDIUM BLOB NOT NULL
-    )", CONFIG.db.table_prefix));
+    )",
+            CONFIG.db.table_prefix
+        ),
+    );
 
     // Go through and create tables
     for table_name in table_sql.keys() {
         match conn.execute(&table_sql[table_name], []) {
             Ok(res) => res,
-            Err(e) => panic!("Unable to create temporary database table '{}' with error: {}", table_name, e)
+            Err(e) => panic!(
+                "Unable to create temporary database table '{}' with error: {}",
+                table_name, e
+            ),
         };
     }
-
 }
 
 pub fn teardown(conn: &Connection) {
-
     // Drop tables
     let tables = vec!["hits", "orf"];
     for table in tables {
         let sql = format!("DROP TABLE IF EXISTS {}_{}", CONFIG.db.table_prefix, table);
         match conn.execute(&sql, []) {
             Ok(res) => res,
-            Err(e) => panic!("Unable to drop temporary database table {} with error: {}", table, e)
+            Err(e) => panic!(
+                "Unable to drop temporary database table {} with error: {}",
+                table, e
+            ),
         };
     }
-
 }
-
-

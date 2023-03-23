@@ -1,32 +1,33 @@
-use crate::reporter::ReporterKit;
-use crate::stats::Stats;
 use crate::algorithms::region_mapped_before;
 use crate::models::Hit;
+use crate::reporter::ReporterKit;
+use crate::stats::Stats;
 use biotools::db::sqlite::TBL_HITS;
+use rusqlite::Error;
 use std::collections::HashMap;
 use std::ops::Range;
-use rusqlite::Error;
 
 pub fn save(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
-
     // Initialize
     let mut coords: HashMap<String, Vec<Range<u16>>> = HashMap::new();
 
     // Prepare
     let sql = format!("SELECT * FROM {} ORDER BY score DESC", *TBL_HITS);
-    let mut stmt = kit.memdb.prepare(&sql)
+    let mut stmt = kit
+        .memdb
+        .prepare(&sql)
         .expect("Unable to prepare SQL statement to retrieve all hits from temporary table.");
 
     // Execute sql
-    let mut rows = stmt.query([])
+    let mut rows = stmt
+        .query([])
         .expect("Unable to execute SQL to retrieve all hits from temporary table.");
 
     // Go through rows
     loop {
-
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Create hit
@@ -54,10 +55,10 @@ pub fn save(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
             header_full: row.get(20)?,
             header_revcomp: row.get(21)?,
             header_translate: row.get(22)?,
-            non_orf_sequence: row.get(23)?, 
+            non_orf_sequence: row.get(23)?,
             est_sequence: "".to_string(),
             hmm_sequence: "".to_string(),
-            aa_sequence: "".to_string()
+            aa_sequence: "".to_string(),
         };
 
         // Write to brh file
@@ -71,13 +72,12 @@ pub fn save(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
         if !region_mapped_before::check(&kit, &hit, &chk_coords) {
             stats.write_nolap(&hit);
         }
-        coords.entry(hit.digest).or_insert(Vec::new()).push(hit.ali_start..hit.ali_end);
+        coords
+            .entry(hit.digest)
+            .or_insert(Vec::new())
+            .push(hit.ali_start..hit.ali_end);
     }
 
-        // Return
+    // Return
     Ok(true)
-
 }
-
-
-

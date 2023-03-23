@@ -2,14 +2,12 @@ extern crate serde;
 
 use crate::database::Database;
 use crate::models::Sequence;
-use std::string::String;
-use std::io::{self, Write};
 use crate::{BIODB_ARGS, ROCKSDB};
 use log::error;
+use std::io::{self, Write};
+use std::string::String;
 
-
-pub fn get () {
-
+pub fn get() {
     // Get sequence
     let mut seq: String = match ROCKSDB.get(&BIODB_ARGS.header) {
         Some(r) => r,
@@ -35,6 +33,3 @@ pub fn get () {
     // Output sequence
     io::stdout().write_all(seq.as_bytes()).unwrap();
 }
-
-
-

@@ -1,13 +1,13 @@
-use crate::reporter::ReporterKit;
-use biotools::db::sqlite::{TBL_HITS, TBL_AASEQS, TBL_ESTS};
-use crate::models::{Hit, OrfTranscript};
-use crate::stats::Stats;
 use crate::algorithms::{orf, orf_extended};
-use rusqlite::{Error, Statement, ToSql};
+use crate::models::{Hit, OrfTranscript};
+use crate::reporter::ReporterKit;
+use crate::stats::Stats;
+use biotools::db::sqlite::{TBL_AASEQS, TBL_ESTS, TBL_HITS};
 use biotools::CONFIG;
+use log::warn;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
-use log::warn;
+use rusqlite::{Error, Statement, ToSql};
 
 pub struct OrfResult {
     pub hit_id: u32,
@@ -16,27 +16,26 @@ pub struct OrfResult {
     pub gene_id: Option<String>,
     pub header_base: Option<String>,
     pub revcomp: Option<u8>,
-    pub translate: Option<u8>
+    pub translate: Option<u8>,
 }
 
-pub fn run(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> { 
-
+pub fn run(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
     // Prepare insert sql
     let mut insert_stmt = prepare_insert_sql(&kit);
 
     // Prepare and execute sql
     let mut stmt = prepare_select_sql(&kit);
-    let mut rows = stmt.query([])
+    let mut rows = stmt
+        .query([])
         .expect("Unable to execute SQL to retrieve hits during finalization.");
 
     // GO through rows
     let mut hits: Vec<Hit> = Vec::new();
     loop {
-
         // Get row
         let row = match rows.next()? {
             Some(r) => r,
-            None => break
+            None => break,
         };
 
         // Get est sequence, reverse if necessary
@@ -71,11 +70,11 @@ pub fn run(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
             header_base: row.get(19)?,
             header_full: row.get(20)?,
             header_revcomp: is_revcomp,
-            header_translate: row.get(22)?, 
+            header_translate: row.get(22)?,
             non_orf_sequence: row.get(23)?,
             aa_sequence: row.get(25)?,
             hmm_sequence: est_to_hmm(&est_sequence, &ali_start, &ali_end),
-            est_sequence: est_sequence
+            est_sequence: est_sequence,
         };
 
         // Add to hits
@@ -83,14 +82,16 @@ pub fn run(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
     }
 
     // Process candidates
-    let results: Vec<OrfResult> = hits.par_iter().map(|h| {
-        let res = process_hits(&h);
-        res
-    }).collect();
+    let results: Vec<OrfResult> = hits
+        .par_iter()
+        .map(|h| {
+            let res = process_hits(&h);
+            res
+        })
+        .collect();
 
     // Go through results
     for res in results {
-
         // Check for discard
         if None == res.taxid {
             stats.discard_non_orf(&kit, &res);
@@ -113,10 +114,10 @@ pub fn run(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
             &orf.aa_start_hmm,
             &orf.aa_end_hmm,
             &orf.translated_seq,
-            &orf.cdna_seq
+            &orf.cdna_seq,
         ]) {
             Ok(r) => r,
-            Err(e) => panic!("Unable to insert into temporary orf table, error: {}", e)
+            Err(e) => panic!("Unable to insert into temporary orf table, error: {}", e),
         };
     }
 
@@ -124,7 +125,6 @@ pub fn run(kit: &ReporterKit, mut stats: &mut Stats) -> Result<bool, Error> {
 }
 
 fn process_hits(hit: &Hit) -> OrfResult {
-
     // Generate orf
     let initial_orf = match orf::generate(&hit, false) {
         Some(r) => r,
@@ -137,7 +137,7 @@ fn process_hits(hit: &Hit) -> OrfResult {
                 gene_id: Some(format!("{}", hit.gene_id)),
                 header_base: Some(format!("{}", hit.header_base)),
                 revcomp: Some(hit.header_revcomp as u8),
-                translate: Some(hit.header_translate)
+                translate: Some(hit.header_translate),
             };
         }
     };
@@ -159,15 +159,15 @@ fn process_hits(hit: &Hit) -> OrfResult {
         gene_id: Some(format!("{}", hit.gene_id)),
         header_base: Some(format!("{}", hit.header_base)),
         revcomp: Some(hit.header_revcomp as u8),
-        translate: Some(hit.header_translate)
+        translate: Some(hit.header_translate),
     };
 
     res
 }
 
 fn prepare_select_sql(kit: &ReporterKit) -> Statement {
-
-    let sql = format!("SELECT 
+    let sql = format!(
+        "SELECT 
         h.*,
         a.taxid,
         a.sequence aa_sequence, 
@@ -178,55 +178,63 @@ fn prepare_select_sql(kit: &ReporterKit) -> Statement {
         h.blast_target = a.id AND 
         e.header = h.header_base
         ORDER BY h.id 
-    ", *TBL_HITS, *TBL_AASEQS, *TBL_ESTS);
-//ORDER BY h.gene_id,h.score,h.header_base
+    ",
+        *TBL_HITS, *TBL_AASEQS, *TBL_ESTS
+    );
+    //ORDER BY h.gene_id,h.score,h.header_base
     // Prepare sql
     let stmt = match kit.memdb.prepare(&sql) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to prepare sql to select hits during frameshift correction, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare sql to select hits during frameshift correction, error: {}",
+            e
+        ),
     };
 
     stmt
 }
 
 fn prepare_insert_sql(kit: &ReporterKit) -> Statement {
-
     // Format sql
     let sql = format!("INSERT INTO {}_orf (hit_id, taxid, cdna_start, cdna_end, aa_start, aa_end, cdna_start_transcript, cdna_end_transcript, aa_start_transcript, aa_end_transcript, aa_start_hmm, aa_end_hmm, translated_seq, cdna_seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", CONFIG.db.table_prefix);
 
     // Prepare
     let stmt = match kit.memdb.prepare(&sql) {
         Ok(r) => r,
-        Err(e) => panic!("Unable to prepare insert sql statement for orf table, error: {}", e)
+        Err(e) => panic!(
+            "Unable to prepare insert sql statement for orf table, error: {}",
+            e
+        ),
     };
 
     stmt
 }
 
-
 fn reverse_seq(old_seq: &String) -> String {
-
-    let seq: String = old_seq.chars().rev().map(|c| match c {
-        'A' => 'T',
-        'G' => 'C',
-        'C' => 'G',
-        'T' => 'A',
-        'Y' => 'R',
-        'R' => 'Y',
-        'K' => 'M',
-        'M' => 'K',
-        'a' => 'T',
-        'g' => 'C',
-        'c' => 'G',
-        't' => 'A',
-        _ => c
-    }).collect();
+    let seq: String = old_seq
+        .chars()
+        .rev()
+        .map(|c| match c {
+            'A' => 'T',
+            'G' => 'C',
+            'C' => 'G',
+            'T' => 'A',
+            'Y' => 'R',
+            'R' => 'Y',
+            'K' => 'M',
+            'M' => 'K',
+            'a' => 'T',
+            'g' => 'C',
+            'c' => 'G',
+            't' => 'A',
+            _ => c,
+        })
+        .collect();
 
     seq
 }
 
 fn est_to_hmm(est_sequence: &String, ali_start: &u16, ali_end: &u16) -> String {
-
     // Get start and end
     let start: usize = (*ali_start as usize - 1) * 3;
     let end: usize = start + ((*ali_end as usize - *ali_start as usize + 1) * 3);
@@ -234,5 +242,3 @@ fn est_to_hmm(est_sequence: &String, ali_start: &u16, ali_end: &u16) -> String {
     // Return
     est_sequence.as_str()[start..end].to_string()
 }
-
-

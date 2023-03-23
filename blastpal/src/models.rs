@@ -1,11 +1,10 @@
-
 pub struct HmmSearch {
     pub id: u32,
     pub gene_id: String,
     pub target: String,
     pub ali_start: u16,
     pub ali_end: u16,
-    pub sequence: String
+    pub sequence: String,
 }
 
 pub struct Blast {
@@ -16,7 +15,5 @@ pub struct Blast {
     pub log_evalue: f32,
     pub res_start: u16,
     pub res_end: u16,
-    pub hmmsearch_id: u32
+    pub hmmsearch_id: u32,
 }
-
-
