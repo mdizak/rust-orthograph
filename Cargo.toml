@@ -1,0 +1,11 @@
+
+[workspace]
+members = [
+    "aliscore",
+    "reporter",
+    "blastpal",
+    "biotools",
+    "biodb"
+]
+
+
